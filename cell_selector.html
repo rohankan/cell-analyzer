@@ -1,0 +1,467 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <title>Cell Counter</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <script src="jquery-3.1.1.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script>
+    </script>
+
+    <!-- Page styles -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:regular,bold,italic,thin,light,bolditalic,black,medium&amp;lang=en">
+  </head>
+  <body style="padding-left: 100px">
+        <!--<h1 style="font-size: 5em">Cell Tool</h1>-->
+		<style>
+		.img{position:absolute;z-index:1;}
+
+		#container{
+		    display:inline-block;
+		    margin: 0 auto; 
+		    position:relative; 
+		    box-shadow: 0 5px 50px #333}
+
+		#gameCanvas{
+		    position:relative;
+		    z-index:20;
+		}
+
+		.menu-button {
+			width: 12%;
+		}
+
+		.inline-button {
+			display: inline-block;
+		}
+
+		.btna {
+			height: 37px; 
+			width: 37px;   
+			background-repeat:no-repeat;
+		}
+
+		.selected {
+			border: 5px solid gray;
+		}
+
+		.not-selected {
+			border: 0px solid transparent;
+		}
+		</style>
+		<script>
+		//The rectangle overlay JS.
+
+		var canvasArray =  [[1201,33,51,42],[20,255,65,48],[352,310,45,49],[1285,310,42,41],[716,371,64,56],[1037,481,64,56],[630,573,61,49],[692,569,45,53],[270,614,58,64],[214,766,66,72],[144,883,46,46],[585,809,57,56],[1053,802,63,64]]
+
+
+;
+
+ 		//Stores [x, y, width, height] arrays.
+		var daughterArray = []; //Stores [[x, y, width, height], ..., ..., etc...] arrays for canvasArray.
+		var canvas;
+		var currentSelection = -1;
+		var currentDaughterSelection = -1;
+		var currentDaughterSmallSelection = -1;
+		var removeCellFlag = false;
+		var removeDaughterFlag = false;
+
+		//Constants for rectangle manipulation.
+		var BORDER_VERTICAL = 10;
+		var BORDER_HORIZONTAL = 10;
+
+		function drawAllRects() {
+			var context = $('#gameCanvas')[0].getContext("2d");
+
+			context.clearRect(0, 0, 1400, 1050);
+
+			context.strokeStyle = "#FFFFFF";
+			context.fillStyle = "#FFFFFF";
+			for (var i = 0; i < canvasArray.length; i++) {
+				context.strokeRect(canvasArray[i][0], canvasArray[i][1], canvasArray[i][2], canvasArray[i][3]);
+				context.font = "30px Arial";
+				context.fillText((i+1).toString(), canvasArray[i][0], canvasArray[i][1]);
+			}
+
+			context.strokeStyle = "#FFFF00";
+			context.fillStyle = "#FFFF00";
+			for (var i = 0; i < daughterArray.length; i++) {
+				for (var a = 0; a < daughterArray[i].length; a++) {
+					context.strokeRect(daughterArray[i][a][0], daughterArray[i][a][1], daughterArray[i][a][2], daughterArray[i][a][3]);
+					context.font = "30px Arial";
+					context.fillText((i+1).toString() + "-" + (a+1).toString(), daughterArray[i][a][0], daughterArray[i][a][1]);
+				}
+			}
+		}
+
+		function setCursor(cursor) {
+			$('body,html').css('cursor', cursor);
+		}
+
+		function revertCursor() {
+			$('body,html').css('cursor','default');
+		}
+
+		$(document).ready(function() {
+
+			//Outsourced for removal simplicity in 'mouseup'.
+			var hSizingFunction = function(event) {
+				var coords = $('#gameCanvas')[0].relMouseCoords(event);
+				var array = canvasArray[currentSelection];
+				var difference = coords.x - array[0] - array[2];
+				canvasArray[currentSelection][2] += difference;
+
+
+				drawAllRects();
+			}
+
+			var vSizingFunction = function(event) {
+				var coords = $('#gameCanvas')[0].relMouseCoords(event);
+				var array = canvasArray[currentSelection];
+
+				var difference = coords.y - array[1] - array[3];
+				canvasArray[currentSelection][3] += difference;
+
+				drawAllRects();
+			}
+
+			var posFunction = function(event) {
+				var coords = $('#gameCanvas')[0].relMouseCoords(event);
+
+				canvasArray[currentSelection][0] = coords.x;
+				canvasArray[currentSelection][1] = coords.y;
+
+				drawAllRects();
+			}
+
+			var dhSizingFunction = function(event) {
+				var coords = $('#gameCanvas')[0].relMouseCoords(event);
+				var array = daughterArray[currentDaughterSelection][currentDaughterSmallSelection];
+
+				var difference = coords.x - array[0] - array[2];
+				daughterArray[currentDaughterSelection][currentDaughterSmallSelection][2] += difference;
+
+				drawAllRects();
+			}
+
+			var dvSizingFunction = function(event) {
+				var coords = $('#gameCanvas')[0].relMouseCoords(event);
+				var array = daughterArray[currentDaughterSelection][currentDaughterSmallSelection];
+
+				var difference = coords.y - array[1] - array[3];
+				daughterArray[currentDaughterSelection][currentDaughterSmallSelection][3] += difference;
+
+				drawAllRects();
+			}
+
+			var dposFunction = function(event) {
+				var coords = $('#gameCanvas')[0].relMouseCoords(event);
+
+				daughterArray[currentDaughterSelection][currentDaughterSmallSelection][0] = coords.x;
+				daughterArray[currentDaughterSelection][currentDaughterSmallSelection][1] = coords.y;
+
+				drawAllRects();
+			}
+
+			$('#gameCanvas')[0].addEventListener('mousedown', function(event) {
+				var coords = $('#gameCanvas')[0].relMouseCoords(event);
+				var x = coords.x;
+				var y = coords.y;
+				if (removeCellFlag) {
+					for (var i = 0; i < canvasArray.length; i++) {
+						if (isWithinBounds(x, y, canvasArray[i])) {
+							canvasArray.splice(i, 1);
+							break;
+						}
+					}
+					removeCellFlag = false;
+					var tempString = "<option value=\"\" disabled selected>Select which cell</option>";
+					for (var i = 0; i < canvasArray.length; i++) {
+						tempString += ("<option value=\"" + (i+1) + "\">" + (i+1) + "</option>");
+					}
+					document.getElementById("daughterSelect").innerHTML = tempString;
+
+					revertCursor();
+					drawAllRects();
+				} else if (removeDaughterFlag) {
+					for (var i = 0; i < daughterArray.length; i++) {
+						for (var a = 0; a < daughterArray[i].length; a++) {
+							if (isWithinBounds(x, y, daughterArray[i][a])) {
+								daughterArray[i].splice(a, 1);
+								break;
+							}
+						}
+					}
+					removeDaughterFlag = false;
+					revertCursor();
+					drawAllRects();
+				} else {
+
+					for (var i = 0; i < canvasArray.length; i++) {
+						var array = canvasArray[i];
+
+						var rightLineArray = [array[0]+array[2]-BORDER_HORIZONTAL, array[1], BORDER_HORIZONTAL, array[3]];
+						var bottomLineArray = [array[0], array[1]+array[3]-BORDER_VERTICAL, array[2], BORDER_VERTICAL];
+						var centerArray = [array[0], array[1], array[2] - BORDER_HORIZONTAL, array[3] - BORDER_VERTICAL];
+
+						if (isWithinBounds(x, y, rightLineArray)) {
+							//Effective mouse drag listener when in mousedown.
+							currentSelection = i;
+							$('#gameCanvas')[0].addEventListener('mousemove', hSizingFunction, false);
+
+							//Removing mouse drag listener on mouse lift.
+							$('#gameCanvas')[0].addEventListener('mouseup', function(event) {
+							var coords = $('#gameCanvas')[0].relMouseCoords(event);
+								$('#gameCanvas')[0].removeEventListener('mousemove', hSizingFunction);
+							}, false);
+							break;
+						} else if (isWithinBounds(x, y, bottomLineArray)) {
+							//Effective mouse drag listener when in mousedown.
+							currentSelection = i;
+							$('#gameCanvas')[0].addEventListener('mousemove', vSizingFunction, false);
+
+							//Removing mouse drag listener on mouse lift.
+							$('#gameCanvas')[0].addEventListener('mouseup', function(event) {
+							var coords = $('#gameCanvas')[0].relMouseCoords(event);
+								$('#gameCanvas')[0].removeEventListener('mousemove', vSizingFunction);
+							}, false);
+							break;
+						} else if (isWithinBounds(x, y, centerArray)) {
+							//Effective mouse drag listener when in mousedown.
+							currentSelection = i;
+							$('#gameCanvas')[0].addEventListener('mousemove', posFunction, false);
+
+							//Removing mouse drag listener on mouse lift.
+							$('#gameCanvas')[0].addEventListener('mouseup', function(event) {
+							var coords = $('#gameCanvas')[0].relMouseCoords(event);
+								$('#gameCanvas')[0].removeEventListener('mousemove', posFunction);
+							}, false);
+							break;
+						}
+					}
+
+					for (var a = 0; a < daughterArray.length; a++) {
+						for (var i = 0; i < daughterArray[a].length; i++) {
+							var array = daughterArray[a][i];
+
+							var rightLineArray = [array[0]+array[2]-BORDER_HORIZONTAL, array[1], BORDER_HORIZONTAL, array[3]];
+							var bottomLineArray = [array[0], array[1]+array[3]-BORDER_VERTICAL, array[2], BORDER_VERTICAL];
+							var centerArray = [array[0], array[1], array[2] - BORDER_HORIZONTAL, array[3] - BORDER_VERTICAL];
+
+							if (isWithinBounds(x, y, rightLineArray)) {
+								//Effective mouse drag listener when in mousedown.
+								currentDaughterSelection = a;
+								currentDaughterSmallSelection = i;
+								$('#gameCanvas')[0].addEventListener('mousemove', dhSizingFunction, false);
+
+								//Removing mouse drag listener on mouse lift.
+								$('#gameCanvas')[0].addEventListener('mouseup', function(event) {
+								var coords = $('#gameCanvas')[0].relMouseCoords(event);
+									$('#gameCanvas')[0].removeEventListener('mousemove', dhSizingFunction);
+								}, false);
+								break;
+							} else if (isWithinBounds(x, y, bottomLineArray)) {
+								//Effective mouse drag listener when in mousedown.
+								currentDaughterSelection = a;
+								currentDaughterSmallSelection = i;
+								$('#gameCanvas')[0].addEventListener('mousemove', dvSizingFunction, false);
+
+								//Removing mouse drag listener on mouse lift.
+								$('#gameCanvas')[0].addEventListener('mouseup', function(event) {
+								var coords = $('#gameCanvas')[0].relMouseCoords(event);
+									$('#gameCanvas')[0].removeEventListener('mousemove', dvSizingFunction);
+								}, false);
+								break;
+							} else if (isWithinBounds(x, y, centerArray)) {
+								//Effective mouse drag listener when in mousedown.
+								currentDaughterSelection = a;
+								currentDaughterSmallSelection = i;
+								$('#gameCanvas')[0].addEventListener('mousemove', dposFunction, false);
+
+								//Removing mouse drag listener on mouse lift.
+								$('#gameCanvas')[0].addEventListener('mouseup', function(event) {
+								var coords = $('#gameCanvas')[0].relMouseCoords(event);
+									$('#gameCanvas')[0].removeEventListener('mousemove', dposFunction);
+								}, false);
+								break;
+							}
+						}
+					}
+				}
+			}, false);
+
+			$('#blackredbutton').click(function() {
+				$('#blackredbutton').addClass("selected");
+				$('#greenbutton').removeClass("selected");
+				$('#graybutton').removeClass("selected");
+				$('#blackgraybutton').removeClass("selected");
+				$('#backgroundimage').attr("src", "analyze1.tif");
+			});
+
+			$('#greenbutton').click(function() {
+				$('#blackredbutton').removeClass("selected");
+				$('#greenbutton').addClass("selected");
+				$('#graybutton').removeClass("selected");
+				$('#blackgraybutton').removeClass("selected");
+				$('#backgroundimage').attr("src", "analyze2.tif");
+			});
+
+			$('#graybutton').click(function() {
+				$('#blackredbutton').removeClass("selected");
+				$('#greenbutton').removeClass("selected");
+				$('#graybutton').addClass("selected");
+				$('#blackgraybutton').removeClass("selected");
+				$('#backgroundimage').attr("src", "analyze3.tif");
+			});
+
+			$('#blackgraybutton').click(function() {
+				$('#blackredbutton').removeClass("selected");
+				$('#greenbutton').removeClass("selected");
+				$('#graybutton').removeClass("selected");
+				$('#blackgraybutton').addClass("selected");
+				$('#backgroundimage').attr("src", "analyze4.tif");
+
+			});
+		});
+
+		function isWithinBounds(x, y, array) {
+			return (x > array[0] && x < array[0] + array[2]) && (y > array[1] && y < array[1] + array[3]);
+		}
+
+		function relMouseCoords(event){
+		    var totalOffsetX = 0;
+		    var totalOffsetY = 0;
+		    var canvasX = 0;
+		    var canvasY = 0;
+		    var currentElement = $('#gameCanvas')[0];
+
+		   do{
+		        totalOffsetX += currentElement.offsetLeft - currentElement.scrollLeft;
+		        totalOffsetY += currentElement.offsetTop - currentElement.scrollTop;
+		    }
+		    while(currentElement = currentElement.offsetParent)
+
+		    canvasX = event.pageX - totalOffsetX;
+		    canvasY = event.pageY - totalOffsetY;
+
+		    return {x:canvasX, y:canvasY}
+		}
+		HTMLCanvasElement.prototype.relMouseCoords = relMouseCoords;
+
+		function overlayCell() {
+			canvasArray.push([100, 150, 200, 150]);
+			daughterArray.push([]);
+			drawAllRects();
+
+			var tempString = "<option value=\"\" disabled selected>Select which cell</option>";
+			for (var i = 0; i < canvasArray.length; i++) {
+				tempString += ("<option value=\"" + (i+1) + "\">" + (i+1) + "</option>");
+			}
+			document.getElementById("daughterSelect").innerHTML = tempString;
+		}
+
+		function overlayDaughter() {
+			var value = $('#daughterSelect').find(":selected").val();
+
+			if (value != "" && value != null) {
+				daughterArray[value-1].push([300, 150, 200, 150]);
+
+				drawAllRects();
+			}
+		}
+
+		function removeCell() {
+			removeCellFlag = true;
+			setCursor("pointer");
+		}
+
+		function removeDaughter() {
+			removeDaughterFlag = true;
+			setCursor("pointer");
+		}
+
+		function done() {
+			var returnStr = "["
+			for (var i = 0; i < canvasArray.length; i++) {
+				returnStr += ("[[" + canvasArray[i][0] + "," + canvasArray[i][1] + "," + canvasArray[i][2] + "," + canvasArray[i][3] + "],");
+				/*for (var a = 0; a < daughterArray[i].length; a++) {
+					returnStr += ("[" + daughterArray[i][a][0] + "," + daughterArray[i][a][1] + "," + daughterArray[i][a][2] + "," + daughterArray[i][a][3] + "],");
+				}*/
+				returnStr = returnStr.substring(0, returnStr.length-1);
+				returnStr += "],";
+			}
+			returnStr = returnStr.substring(0, returnStr.length-1);
+			returnStr += "]";
+			$('#tester').text(returnStr);
+		}
+
+		function info() {
+			alert(" - Drag from the right edge of a rectangle to control width. \n\n - Drag from the bottom edge of a rectangle to control height. \n\n - Drag anywhere else on a rectangle to control position.\n\n - Enter the number to tell which cell the daughter cell is part of.\n\n- Hit done to copy/paste the output shown below the image into the Python program.")
+		}
+		</script>
+		<div class="vertical-center" style="height: 80%">
+			<!--<h1 style="font-size: 1.5em" class="inline-button">Create rectangles to make the bounds for each cell. Make sure to designate whether they are cells or daughter cells.<br>Run with chrome for best usage.</h1>
+
+			<button onclick="info()" id="cell-button" type="button" class="btn menu-button btn-default inline-button btn-lg" style="margin-top: 30px; margin-bottom: 30px; margin-left: 80px">INFO</button>-->
+
+			<div id="menu-holder">
+				<h1 style="font-size: 1.5em; margin-right: 30px" class="inline-button">Create:</h1>
+
+				<button onclick="overlayCell()" id="cell-button" type="button" class="btn menu-button btn-default inline-button btn-lg" style="margin-top: 30px; margin-bottom: 30px">CELL</button>
+
+				<button onclick="overlayDaughter()" id="daughter-cell-button" type="button" class="btn menu-button btn-default inline-button btn-lg" style="margin-top: 30px; margin-bottom: 30px">DAUGHTER CELL</button>
+
+				<select id="daughterSelect" class="inline-button" name="daughterSelect">
+				  <option value="" disabled selected>Select which cell</option>
+				</select>
+
+				<h1 style="font-size: 1.5em; margin-right: 30px; margin-left: 30px" class="inline-button">Remove:</h1>
+
+				<button onclick="removeCell()" id="cell-button" type="button" class="btn menu-button btn-default inline-button btn-lg" style="margin-top: 30px; margin-bottom: 30px">CELL</button>
+
+				<button onclick="removeDaughter()" id="daughter-cell-button" type="button" class="btn menu-button btn-default inline-button btn-lg" style="margin-top: 30px; margin-bottom: 30px">DAUGHTER CELL</button>
+
+				<button onclick="done()" id="daughter-cell-button" type="button" class="btn menu-button btn-default inline-button btn-lg" style="margin-top: 30px; margin-bottom: 30px; margin-right: 180px; float: right">DONE</button>
+			</div>
+
+			<h1 id="tester" style="font-size: 1.5em"></h1>
+
+			<div style="display: block">
+				<button id="blackredbutton" class="selected" style="background-image:url('analyze1.tif'); display: inline-block; width: 174px; height: 130px"></button>
+				<button id="greenbutton" style="background-image:url('analyze2.tif'); display: inline-block; width: 174px; height: 130px"></button>
+				<button id="graybutton" style="background-image:url('analyze3.tif'); display: inline-block; width: 174px; height: 130px"></button>
+				<button id="blackgraybutton" style="background-image:url('analyze4.tif'); width: 174px; height: 130px"></button>
+			</div>
+
+			<div id="container" style="width: 1392; height: 1040">
+				<img id="backgroundimage" class='img' src="analyze1.tif" width="1392" height="1040"/>
+				<canvas id="gameCanvas" width="1392" height="1040"></canvas>
+			</div>
+		</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
